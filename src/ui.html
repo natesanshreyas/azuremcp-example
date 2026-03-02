@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Azure MCP Subscription Assistant</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; max-width: 920px; }
+      h1 { margin-bottom: 8px; }
+      .muted { color: #666; margin-bottom: 16px; }
+      textarea, input { width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 10px; }
+      button { padding: 10px 16px; cursor: pointer; }
+      pre { white-space: pre-wrap; background: #f4f4f4; padding: 12px; border-radius: 8px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>Azure MCP Subscription Assistant</h1>
+    <p class="muted">Ask subscription-wide Azure questions. This app uses Azure MCP tools only.</p>
+
+    <label for="question">Question</label>
+    <textarea id="question" rows="4" placeholder="Where is app cortex deployed?"></textarea>
+
+    <div class="row">
+      <div>
+        <label for="subscription">Subscription ID (optional)</label>
+        <input id="subscription" placeholder="00000000-0000-0000-0000-000000000000" />
+      </div>
+      <div>
+        <label for="iterations">Max iterations</label>
+        <input id="iterations" type="number" min="1" max="12" value="6" />
+      </div>
+    </div>
+
+    <button id="ask">Ask</button>
+    <p id="status"></p>
+
+    <h3>Answer</h3>
+    <pre id="answer"></pre>
+
+    <h3>Tool Trace</h3>
+    <pre id="trace"></pre>
+
+    <script>
+      const askBtn = document.getElementById('ask');
+      const questionEl = document.getElementById('question');
+      const subEl = document.getElementById('subscription');
+      const iterEl = document.getElementById('iterations');
+      const statusEl = document.getElementById('status');
+      const answerEl = document.getElementById('answer');
+      const traceEl = document.getElementById('trace');
+
+      askBtn.addEventListener('click', async () => {
+        const question = questionEl.value.trim();
+        if (!question) {
+          statusEl.textContent = 'Enter a question.';
+          return;
+        }
+
+        statusEl.textContent = 'Running query...';
+        answerEl.textContent = '';
+        traceEl.textContent = '';
+
+        try {
+          const response = await fetch('/api/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              question,
+              subscription_id: subEl.value.trim() || undefined,
+              max_iterations: Number(iterEl.value || 6),
+            }),
+          });
+
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.detail || 'Request failed');
+          }
+
+          answerEl.textContent = payload.answer;
+          traceEl.textContent = JSON.stringify(payload.tool_calls, null, 2);
+          statusEl.textContent = `Done in ${payload.iterations} iteration(s).`;
+        } catch (err) {
+          statusEl.textContent = `Error: ${err.message}`;
+        }
+      });
+    </script>
+  </body>
+</html>
