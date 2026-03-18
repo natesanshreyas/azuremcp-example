@@ -494,6 +494,20 @@ def _build_cli_manifest(tools: List[Dict[str, Any]], question: str) -> List[Dict
     return [_ARG_VIRTUAL_COMMAND] + [e for e in dedup.values() if e["command"] != "arg query"]
 
 
+def _build_postgres_credential_hint() -> str:
+    """Return a hint injected into the question when default PG creds are configured."""
+    user = os.getenv("POSTGRES_DEFAULT_USER", "").strip()
+    password = os.getenv("POSTGRES_DEFAULT_PASSWORD", "").strip()
+    auth_type = os.getenv("POSTGRES_DEFAULT_AUTH_TYPE", "PostgreSQL").strip()
+    if user and password:
+        return (
+            f"\nDefault Postgres credentials available — use these unless the user "
+            f"specified different ones: --user {user} --password {password} "
+            f"--auth-type {auth_type}"
+        )
+    return ""
+
+
 def _query_subscription_via_cli(
     openai_settings: OpenAISettings,
     question: str,
@@ -541,13 +555,19 @@ def _query_subscription_via_cli(
                 "(3) --subscription is injected automatically — do NOT include it in arguments. "
                 "(4) Include ALL user-provided option values (--server, --user, --password, --auth-type, etc.) verbatim. "
                 "(5) Final answer must be a JSON array or object — never prose. "
-                "(6) Never return an empty [] final answer if you have not yet called any command."
+                "(6) Never return an empty [] final answer if you have not yet called any command. "
+                "(7) If a user asks about a named Postgres server but does not provide --resource-group, "
+                "first call 'arg query' with KQL "
+                "\"Resources | where type =~ 'microsoft.dbforpostgresql/flexibleservers' "
+                "| where name =~ '<server_name>' | project name, resourceGroup\" "
+                "to discover the resource group, then proceed with the postgres command."
             ),
         },
         {
             "role": "user",
             "content": (
-                f"Question: {question}\n"
+                f"Question: {question}"
+                f"{_build_postgres_credential_hint()}\n"
                 "Subscription context: pre-configured (do not include in arguments)\n"
                 f"Available Azure MCP commands (manifest):\n{manifest}"
             ),
@@ -706,13 +726,19 @@ def query_subscription(
                             "(7) Final answer must be a JSON array or object — never prose. "
                             "(8) Never return an empty [] final answer without first calling a tool. "
                             "(9) There is NO generic 'resource list' tool. To find resources in a specific resource group, "
-                            "call multiple resource-type tools with subscriptionId and resourceGroupName arguments."
+                            "call multiple resource-type tools with subscriptionId and resourceGroupName arguments. "
+                            "(10) If a user asks about a named Postgres server but does not provide --resource-group, "
+                            "first call 'arg query' with KQL "
+                            "\"Resources | where type =~ 'microsoft.dbforpostgresql/flexibleservers' "
+                            "| where name =~ '<server_name>' | project name, resourceGroup\" "
+                            "to discover the resource group, then proceed with the postgres tool call."
                         ),
                     },
                     {
                         "role": "user",
                         "content": (
-                            f"Question: {question}\n"
+                            f"Question: {question}"
+                            f"{_build_postgres_credential_hint()}\n"
                             "Subscription context: pre-configured (do not include in arguments)\n"
                             f"Available Azure MCP tools (manifest):\n{manifest}"
                         ),
