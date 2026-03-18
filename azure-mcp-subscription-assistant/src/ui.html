@@ -47,12 +47,13 @@
         <button class="example-btn" type="button">Which Postgres servers do not have geo-redundant backup enabled?</button>
         <button class="example-btn" type="button">Show all Postgres servers with public network access enabled</button>
         <button class="example-btn" type="button">What is the backup and HA configuration for all Postgres servers?</button>
+        <button class="example-btn" type="button">Show the full configuration for snow-demo-postgres — HA, backup, network, version</button>
         <button class="example-btn" type="button">Which databases for the cortex application are misconfigured — missing HA or geo backup?</button>
         <button class="example-btn" type="button">Show all Postgres servers grouped by version</button>
         <button class="example-btn" type="button">List all Cosmos DB accounts</button>
       </div>
 
-      <p style="margin:4px 0;font-size:12px;color:#666;font-weight:bold">DATABASE — DATA-PLANE (requires running server + network access)</p>
+      <p style="margin:4px 0;font-size:12px;color:#666;font-weight:bold">DATABASE — DATA-PLANE (requires running server + open firewall on port 5432)</p>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         <button class="example-btn" type="button">Run postgres list with --server snow-demo-postgres --resource-group rg-postgres-demo --user demoadmin --password DemoPass456X --auth-type PostgreSQL</button>
       </div>
