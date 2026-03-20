@@ -12,8 +12,6 @@ from typing import Any, Dict, List, Optional
 
 import requests as _requests
 
-from .openai_client import OpenAISettings, chat_completion
-
 _SUB_ALIAS = "<SUBSCRIPTION>"
 
 _WRITE_KEYWORDS: set[str] = {
@@ -120,6 +118,59 @@ _ARG_VIRTUAL_COMMAND: Dict[str, Any] = {
 
 class AzureMCPError(Exception):
     pass
+
+
+# ---------------------------------------------------------------------------
+# Minimal OpenAI client (inline so this file is self-contained)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class OpenAISettings:
+    endpoint: str
+    deployment_name: str
+    api_version: str
+    model_name: str
+    api_key: str
+    use_azure_ad: bool = False
+
+
+_oa_token_cache: Dict[str, Any] = {}
+
+
+def _get_oa_azure_ad_token() -> str:
+    if _oa_token_cache.get("token") and _oa_token_cache.get("expires_at", 0) > time.time() + 60:
+        return _oa_token_cache["token"]
+    from azure.identity import DefaultAzureCredential
+    token = DefaultAzureCredential().get_token("https://cognitiveservices.azure.com/.default")
+    _oa_token_cache["token"] = token.token
+    _oa_token_cache["expires_at"] = token.expires_on
+    return token.token
+
+
+def chat_completion(
+    settings: OpenAISettings,
+    messages: List[Dict[str, str]],
+    temperature: float = 0.0,
+    max_tokens: int = 1200,
+) -> str:
+    if not settings.endpoint or not settings.deployment_name:
+        raise AzureMCPError("Missing AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_DEPLOYMENT_NAME")
+    if not settings.use_azure_ad and not settings.api_key:
+        raise AzureMCPError("Missing AZURE_OPENAI_API_KEY when AZURE_OPENAI_USE_AZURE_AD=false")
+    url = f"{settings.endpoint}/openai/deployments/{settings.deployment_name}/chat/completions"
+    headers = {"Content-Type": "application/json"}
+    if settings.use_azure_ad:
+        headers["Authorization"] = f"Bearer {_get_oa_azure_ad_token()}"
+    else:
+        headers["api-key"] = settings.api_key
+    body = {"messages": messages, "temperature": temperature, "max_tokens": max_tokens, "model": settings.model_name}
+    resp = _requests.post(url, params={"api-version": settings.api_version}, headers=headers, json=body, timeout=90)
+    if resp.status_code >= 400:
+        raise AzureMCPError(f"OpenAI API error {resp.status_code}: {resp.text}")
+    try:
+        return resp.json()["choices"][0]["message"]["content"]
+    except Exception as exc:
+        raise AzureMCPError(f"Unexpected OpenAI response: {resp.json()}") from exc
 
 
 @dataclass
