@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 from typing import Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from .azure_mcp_assistant import AzureMCPError, query_subscription
+from .reasoning_engine import AzureMCPError, query_subscription
 from .openai_client import OpenAIClientError, load_openai_settings
 
 
@@ -42,12 +40,6 @@ class QueryResponse(BaseModel):
 @app.get("/health")
 def health() -> Dict[str, str]:
     return {"status": "ok"}
-
-
-@app.get("/", response_class=HTMLResponse)
-def index() -> str:
-    ui_path = Path(__file__).resolve().parent / "ui.html"
-    return ui_path.read_text(encoding="utf-8")
 
 
 @app.post("/api/query", response_model=QueryResponse)
